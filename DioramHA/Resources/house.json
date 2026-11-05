@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "name": "Example Home",
   "sensors": {
     "alarm": "alarm_control_panel.home",
@@ -13,29 +13,21 @@
     "solarEnergy": "sensor.inverter_total_yield",
     "battery": "sensor.battery_level"
   },
-  "view": {
-    "yaw": -0.14,
-    "pitch": -0.6,
-    "width": 18.0,
-    "target": {
-      "x": -1.6,
-      "y": 2.2,
-      "z": 0
-    }
-  },
   "building": {
     "halfWidth": 5,
     "halfDepth": 4,
     "wallHeight": 1.0,
     "lowWall": 0.35,
-    "floors": {
-      "basement": -7.0,
-      "ground": 0,
-      "first": 8.6
-    }
+    "levels": [
+      -1,
+      0,
+      1
+    ],
+    "partyWalls": [
+      "right"
+    ]
   },
   "roof": {
-    "height": 16.2,
     "halfWidth": 5.4,
     "halfDepth": 4.4,
     "ridge": 1.0,
@@ -76,106 +68,106 @@
     },
     "trees": [
       {
-        "floor": "ground",
         "x": -10.0,
         "z": -6.4,
-        "size": 2.2
+        "size": 2.2,
+        "level": 0
       },
       {
-        "floor": "ground",
         "x": -6.0,
         "z": 4.0,
-        "size": 1.4
+        "size": 1.4,
+        "level": 0
       }
     ],
     "hedges": [
       {
-        "floor": "ground",
         "x": -10.9,
         "z": 0.5,
         "width": 0.5,
         "height": 0.8,
-        "depth": 6.0
+        "depth": 6.0,
+        "level": 0
       }
     ]
   },
   "extras": [
     {
       "name": "Storage",
-      "floor": "basement",
       "frame": {
         "x": -5,
         "z": -4,
         "width": 5,
         "depth": 8
       },
-      "color": "C9C4BA"
+      "color": "C9C4BA",
+      "level": -1
     },
     {
       "name": "Stairs",
-      "floor": "basement",
       "frame": {
         "x": 0,
         "z": -4,
         "width": 5,
         "depth": 1
       },
-      "color": "D7D3CA"
+      "color": "D7D3CA",
+      "level": -1
     },
     {
       "name": "Hall",
-      "floor": "ground",
       "frame": {
         "x": 0,
         "z": -4,
         "width": 1.5,
         "depth": 8
       },
-      "color": "E4DCCB"
+      "color": "E4DCCB",
+      "level": 0
     },
     {
       "name": "Porch",
-      "floor": "ground",
       "frame": {
         "x": 1.5,
         "z": 1.5,
         "width": 3.5,
         "depth": 2.5
       },
-      "color": "D9CDB8"
+      "color": "D9CDB8",
+      "level": 0
     },
     {
       "name": "Stairs",
-      "floor": "first",
       "frame": {
         "x": -0.5,
         "z": -4,
         "width": 2,
         "depth": 3
       },
-      "color": "D7D3CA"
+      "color": "D7D3CA",
+      "level": 1
     },
     {
       "name": "Landing",
-      "floor": "first",
       "frame": {
         "x": -0.5,
         "z": -1,
         "width": 2,
         "depth": 1.7
       },
-      "color": "E4DCCB"
+      "color": "E4DCCB",
+      "level": 1
     },
     {
       "name": "Bathroom 2",
-      "floor": "first",
       "frame": {
         "x": 1.5,
         "z": 0,
         "width": 3.5,
         "depth": 2.7
       },
-      "color": "92D5D8"
+      "color": "92D5D8",
+      "level": 1
     }
   ],
   "rooms": [
@@ -184,7 +176,7 @@
       "name": "Bedroom 1",
       "symbol": "bed.double.fill",
       "style": "interior",
-      "floor": "first",
+      "level": 1,
       "frame": {
         "x": -5,
         "z": -4,
@@ -222,7 +214,7 @@
       "name": "Bedroom 2",
       "symbol": "bed.double",
       "style": "interior",
-      "floor": "first",
+      "level": 1,
       "frame": {
         "x": -5,
         "z": 0,
@@ -268,7 +260,7 @@
       "name": "Bedroom 3",
       "symbol": "bed.double",
       "style": "interior",
-      "floor": "first",
+      "level": 1,
       "frame": {
         "x": 1.5,
         "z": -4,
@@ -310,7 +302,7 @@
       "name": "Laundry",
       "symbol": "washer.fill",
       "style": "interior",
-      "floor": "first",
+      "level": 1,
       "frame": {
         "x": -0.5,
         "z": 0.7,
@@ -354,7 +346,7 @@
       "name": "Living Room",
       "symbol": "sofa.fill",
       "style": "interior",
-      "floor": "ground",
+      "level": 0,
       "frame": {
         "x": -5,
         "z": -4,
@@ -417,7 +409,7 @@
       "name": "Kitchen",
       "symbol": "cooktop.fill",
       "style": "interior",
-      "floor": "ground",
+      "level": 0,
       "frame": {
         "x": -5,
         "z": 1,
@@ -466,7 +458,7 @@
       "name": "Study",
       "symbol": "desktopcomputer",
       "style": "interior",
-      "floor": "ground",
+      "level": 0,
       "frame": {
         "x": 1.5,
         "z": -4,
@@ -509,7 +501,7 @@
       "name": "Bathroom",
       "symbol": "shower.fill",
       "style": "interior",
-      "floor": "ground",
+      "level": 0,
       "frame": {
         "x": 1.5,
         "z": -0.5,
@@ -549,7 +541,7 @@
       "name": "Garage",
       "symbol": "car.side.fill",
       "style": "interior",
-      "floor": "basement",
+      "level": -1,
       "frame": {
         "x": 0,
         "z": -3,
@@ -598,7 +590,7 @@
       "name": "Terrace",
       "symbol": "chair.lounge.fill",
       "style": "terrace",
-      "floor": "ground",
+      "level": 0,
       "frame": {
         "x": -5,
         "z": -8,
@@ -645,7 +637,7 @@
       "name": "Pool",
       "symbol": "water.waves",
       "style": "pool",
-      "floor": "ground",
+      "level": 0,
       "frame": {
         "x": -9.5,
         "z": -2.5,
@@ -672,7 +664,7 @@
       "name": "Solar",
       "symbol": "sun.max.fill",
       "style": "solar",
-      "floor": "ground",
+      "level": 0,
       "frame": {
         "x": -3,
         "z": -3.8,
@@ -687,7 +679,7 @@
       "name": "Entrance",
       "symbol": "tree.fill",
       "style": "garden",
-      "floor": "basement",
+      "level": -1,
       "frame": {
         "x": -5,
         "z": 4,

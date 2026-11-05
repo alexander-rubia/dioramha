@@ -42,8 +42,24 @@ instead of the example. **Git ignores it on purpose:** it describes your home an
 published.
 
 Measurements are in meters from the center of the house: `x` to the right seen from the street and
-`z` toward the street. For now the app supports a basement, a ground floor and a first floor,
-rectangular rooms, and a party wall on the right.
+`z` toward the street. Floors go in `building.levels`: `0` is the ground floor, `-1` a basement, `1`
+the floor above. Sides shared with a neighbor go in `building.partyWalls` (`left`, `right`, `back`),
+or leave it empty for a detached house. Each room sets its floor with `level`. Rooms must be
+rectangular for now.
+
+## AI assistant (work in progress)
+
+`worker/` is a Cloudflare Worker that drafts a house file from your Home Assistant areas and a few
+answers, using Workers AI. The model only proposes the layout: which devices appear and which ones
+ask for confirmation is decided by plain code. To run your own:
+
+```sh
+cd worker
+npx wrangler deploy
+npx wrangler secret put ASSISTANT_KEY   # any long random value
+```
+
+The app does not call it yet.
 
 ## Tests
 

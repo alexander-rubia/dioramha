@@ -3,7 +3,7 @@ import UIKit
 
 /// The 3D model, generated from the house file: floors float apart so that
 /// every room can be seen and tapped at once, even when rooms sit behind one another.
-/// Units: meters. x toward the party wall (right), y up, z toward the street.
+/// Units: meters. x to the right seen from the street, y up, z toward the street.
 @MainActor
 final class HouseModel {
     let scene = SCNScene()
@@ -13,27 +13,23 @@ final class HouseModel {
     private let sun = SCNNode()
     private let fill = SCNNode()
     private let ambient = SCNNode()
-    private var yaw = HouseModel.homeYaw
-    private var pitch = HouseModel.homePitch
+    private let doc: HouseDocument
+    private let camera: HouseDocument.View
+    private var yaw: Float
+    private var pitch: Float
     private var zoom: CGFloat = 1
     private var offset = CGPoint.zero
     private var aspect: CGFloat = 0.46
     private var focusedID: String?
     private var didIntro = false
     private var parts: [String: RoomParts] = [:]
-    private var floors: [HouseRoom.Floor: SCNNode] = [:]
+    private var floors: [Int: SCNNode] = [:]
     private let roofNode = SCNNode()
     private var louvers: [SCNNode] = []
     private var columns: [SCNNode] = []
     private let solarCell = SCNMaterial()
     private var applied: HouseSnapshot?
 
-    private static let doc = House.document
-    private static let homeYaw = doc.view.yaw
-    private static let homePitch = doc.view.pitch
-    /// World width that fits on screen: the house and the pool, with the garden slightly cropped.
-    private static let homeWidth = doc.view.width
-    private static let homeTarget = SCNVector3(doc.view.target.x, doc.view.target.y, doc.view.target.z)
     /// A narrow angle, close to an architect's model: every floor looks the same size.
     private static let fieldOfView: CGFloat = 14
     private static let labelName = "label"
@@ -42,15 +38,17 @@ final class HouseModel {
     private static let defaultPaint: UInt32 = 0xCBCDD3
     private static let woodFloor: UInt32 = 0xC49A6C
 
-    private static let halfWidth = doc.building.halfWidth
-    private static let halfDepth = doc.building.halfDepth
-    private static let wallHeight = doc.building.wallHeight
+    private var homeWidth: CGFloat { camera.width }
+    private var homeTarget: SCNVector3 { SCNVector3(camera.target.x, camera.target.y, camera.target.z) }
+    private var halfWidth: CGFloat { doc.building.halfWidth }
+    private var halfDepth: CGFloat { doc.building.halfDepth }
+    private var wallHeight: CGFloat { doc.building.wallHeight }
     /// The wall facing the camera is low, to see inside.
-    private static let lowWall = doc.building.lowWall
-    private static let roofHeight = doc.roof.height
+    private var lowWall: CGFloat { doc.building.lowWall }
+    private var roofHeight: Float { doc.building.roofElevation }
 
-    private static func height(of floor: HouseRoom.Floor) -> Float {
-        doc.building.floors.height(of: floor)
+    private func elevation(of level: Int) -> Float {
+        doc.building.elevation(of: level)
     }
 
     private final class RoomParts {
@@ -68,19 +66,23 @@ final class HouseModel {
         var lookAt: SCNVector3?
     }
 
-    init() {
+    init(document: HouseDocument = House.document) {
+        doc = document
+        camera = document.camera
+        yaw = camera.yaw
+        pitch = camera.pitch
         buildLightsAndCamera()
-        for floor in HouseRoom.Floor.allCases {
+        for level in document.building.levels {
             let node = SCNNode()
-            node.position.y = Self.height(of: floor)
+            node.position.y = elevation(of: level)
             scene.rootNode.addChildNode(node)
-            floors[floor] = node
+            floors[level] = node
         }
-        roofNode.position.y = Self.roofHeight
+        roofNode.position.y = roofHeight
         scene.rootNode.addChildNode(roofNode)
 
         buildGround()
-        for room in House.rooms {
+        for room in doc.rooms {
             switch room.style {
             case .interior: buildInterior(room)
             case .terrace: buildTerrace(room)
@@ -89,8 +91,8 @@ final class HouseModel {
             case .solar: break // Sits on the roof: built with it.
             }
         }
-        for extra in Self.doc.extras { buildUnlabeled(extra.frame.rect, color: extra.color.value, on: extra.floor) }
-        buildPartyWall()
+        for extra in doc.extras { buildUnlabeled(extra.frame.rect, color: extra.color.value, on: extra.level) }
+        buildPartyWalls()
         buildColumns()
         buildRoof()
         apply(.empty)
@@ -127,7 +129,7 @@ final class HouseModel {
     /// Two-finger pan; the closer the view, the less it moves per point.
     func shift(dx: CGFloat, dy: CGFloat) {
         guard focusedID == nil else { return }
-        let perPoint = Self.homeWidth / zoom / 400
+        let perPoint = homeWidth / zoom / 400
         offset.x = min(max(offset.x - dx * perPoint, -9), 9)
         offset.y = min(max(offset.y + dy * perPoint, -12), 12)
         placeCamera(duration: 0)
@@ -142,8 +144,8 @@ final class HouseModel {
             // The panels are on the back slope: they are viewed almost from above.
             pitch = id == "solar" ? -1.05 : -0.78
         } else {
-            yaw = Self.homeYaw
-            pitch = Self.homePitch
+            yaw = camera.yaw
+            pitch = camera.pitch
             zoom = 1
             offset = .zero
         }
@@ -156,7 +158,7 @@ final class HouseModel {
     private func placeCamera(duration: CFTimeInterval) {
         let visible: CGFloat
         var target: SCNVector3
-        let focused = focusedID.flatMap { id in House.rooms.first { $0.id == id } }
+        let focused = focusedID.flatMap { id in doc.rooms.first { $0.id == id } }
         if let room = focused, let part = parts[room.id] {
             visible = max(min(room.frame.width, 9) + 2.5, 6.5)
             // The sheet covers the lower half: the room is centered in the upper half.
@@ -164,8 +166,8 @@ final class HouseModel {
             target = part.lookAt ?? part.center
             target.y -= lift
         } else {
-            visible = Self.homeWidth / zoom
-            target = Self.homeTarget
+            visible = homeWidth / zoom
+            target = homeTarget
             target.x += Float(offset.x)
             target.y += Float(offset.y)
         }
@@ -180,9 +182,9 @@ final class HouseModel {
         for part in parts.values { part.labelNode?.opacity = focused == nil ? 1 : 0 }
         columns.forEach { $0.opacity = focused == nil ? 0.45 : 0 }
         // The floors above fade out so they do not hide the room.
-        let level = focused.flatMap { $0.style == .solar ? nil : Self.height(of: $0.floor) }
+        let level = focused.flatMap { $0.style == .solar ? nil : elevation(of: $0.level) }
         for (floor, node) in floors {
-            node.opacity = level.map { Self.height(of: floor) > $0 ? 0 : 1 } ?? 1
+            node.opacity = level.map { elevation(of: floor) > $0 ? 0 : 1 } ?? 1
         }
         roofNode.opacity = level == nil ? 1 : 0
         SCNTransaction.commit()
@@ -227,7 +229,7 @@ final class HouseModel {
 
         applyPhase(DayPhase(elevation: snapshot.elevation), elevation: snapshot.elevation)
 
-        for room in House.rooms {
+        for room in doc.rooms {
             guard let part = parts[room.id] else { continue }
             let state = snapshot.rooms[room.id] ?? .init()
             part.glow.forEach { $0.emission.intensity = state.lit ? 1 : 0 }
@@ -312,6 +314,16 @@ final class HouseModel {
                 text.append(NSAttributedString(string: " \(temperature)°", attributes: attributes))
             }
             text.addAttribute(.paragraphStyle, value: style, range: NSRange(location: 0, length: text.length))
+            // Long names shrink to fit on one line instead of wrapping out of the label.
+            let room = pixels.width - 56
+            let natural = text.size().width
+            if natural > room {
+                let scale = room / natural
+                text.enumerateAttribute(.font, in: NSRange(location: 0, length: text.length)) { font, range, _ in
+                    guard let font = font as? UIFont else { return }
+                    text.addAttribute(.font, value: font.withSize(font.pointSize * scale), range: range)
+                }
+            }
             let bounds = text.boundingRect(with: pixels, options: [.usesLineFragmentOrigin], context: nil)
             let pill = CGRect(x: (pixels.width - bounds.width) / 2 - 28, y: 0,
                               width: bounds.width + 56, height: bounds.height + 20)
@@ -334,7 +346,7 @@ final class HouseModel {
         cameraNode.camera = camera
         // Starts far away for the opening move.
         cameraNode.position = SCNVector3(0, 0, 130)
-        rig.position = Self.homeTarget
+        rig.position = homeTarget
         rig.eulerAngles = SCNVector3(pitch, yaw, 0)
         rig.addChildNode(cameraNode)
         scene.rootNode.addChildNode(rig)
@@ -364,49 +376,57 @@ final class HouseModel {
     /// The plot rises toward the back: patio and garden are level with the ground floor, and the
     /// street is level with the garage.
     private func buildGround() {
-        guard let ground = floors[.ground], let basement = floors[.basement] else { return }
-        let site = Self.doc.site
+        guard let ground = floors[0], let street = floors[doc.building.lowestLevel] else { return }
+        let site = doc.site
         // Side garden and back patio, on one slab with soil underneath.
         let garden = site.garden.rect
         box(garden.width, 0.5, garden.height, 0x8B6A55, x: garden.midX, bottom: -0.56, z: garden.midY, in: ground)
         box(garden.width, 0.06, garden.height, 0x79AE62, x: garden.midX, bottom: -0.06, z: garden.midY, in: ground)
-        box(0.14, 1.0, -garden.minY - Self.halfDepth, Self.plaster, x: garden.maxX - 0.07, bottom: 0,
-            z: (garden.minY - Self.halfDepth) / 2, in: ground)
+        // The neighbor's fence continues the party wall along the patio.
+        for side in doc.building.partyWalls where side != .back {
+            let sign: CGFloat = side == .right ? 1 : -1
+            box(0.14, 1.0, -garden.minY - halfDepth, Self.plaster, x: sign * (halfWidth - 0.07), bottom: 0,
+                z: (garden.minY - halfDepth) / 2, in: ground)
+        }
         for item in site.trees {
-            guard let parent = floors[item.floor] else { continue }
+            guard let parent = floors[item.level] else { continue }
             tree(x: item.x, z: item.z, size: item.size, groundY: 0, in: parent)
         }
         for hedge in site.hedges {
-            guard let parent = floors[hedge.floor] else { continue }
+            guard let parent = floors[hedge.level] else { continue }
             box(hedge.width, hedge.height, hedge.depth, 0x3F7D4A, x: hedge.x, bottom: 0, z: hedge.z, in: parent)
         }
 
         // Street.
-        let street = site.street
-        box(street.width, 0.5, street.earthDepth, 0x8B6A55, x: street.x, bottom: -0.56, z: street.earthZ, in: basement)
-        box(street.width, 0.12, street.roadDepth, 0x6C7078, x: street.x, bottom: -0.1, z: street.roadZ, in: basement)
+        let road = site.street
+        box(road.width, 0.5, road.earthDepth, 0x8B6A55, x: road.x, bottom: -0.56, z: road.earthZ, in: street)
+        box(road.width, 0.12, road.roadDepth, 0x6C7078, x: road.x, bottom: -0.1, z: road.roadZ, in: street)
     }
 
     private func buildEntrance(_ room: HouseRoom) {
-        guard let parent = floors[room.floor] else { return }
+        guard let parent = floors[room.level] else { return }
         let node = SCNNode()
         node.name = "room:\(room.id)"
         parent.addChildNode(node)
         let f = room.frame
-        let site = Self.doc.site
+        let site = doc.site
 
         box(site.street.width, 0.06, f.height, 0x79AE62, x: site.street.x, bottom: -0.06, z: f.midY, in: node)
         // Garage ramp: from the street to the door.
-        box(site.ramp.width, 0.04, f.height, 0xB9B6AE, x: site.ramp.x, bottom: 0, z: f.midY, in: node)
+        if let ramp = site.ramp {
+            box(ramp.width, 0.04, f.height, 0xB9B6AE, x: ramp.x, bottom: 0, z: f.midY, in: node)
+        }
         // Outdoor steps up to the porch.
-        for step in 0..<site.steps.count {
-            box(site.steps.width, 0.16 * CGFloat(site.steps.count - step), 0.5, 0xE4DFD2, x: site.steps.x, bottom: 0,
-                z: Self.halfDepth + 0.25 + CGFloat(step) * 0.5, in: node)
+        if let steps = site.steps {
+            for step in 0..<steps.count {
+                box(steps.width, 0.16 * CGFloat(steps.count - step), 0.5, 0xE4DFD2, x: steps.x, bottom: 0,
+                    z: halfDepth + 0.25 + CGFloat(step) * 0.5, in: node)
+            }
         }
         placeFurniture(of: room, in: node, center: SCNVector3(f.midX, 0, f.midY))
 
         let part = RoomParts()
-        part.center = SCNVector3(Float(site.street.x), Self.height(of: room.floor) + 0.02, Float(f.midY))
+        part.center = SCNVector3(Float(site.street.x), elevation(of: room.level) + 0.02, Float(f.midY))
         let label = billboard(size: CGSize(width: 3.2, height: 0.72), in: node)
         label.node.position = SCNVector3(Float(site.street.x) + 0.2, 1.0, Float(f.midY))
         part.label = label.material
@@ -433,22 +453,29 @@ final class HouseModel {
 
     // MARK: - House
 
-    /// Solid wall on the one side shared with the neighbor.
-    private func buildPartyWall() {
-        for floor in HouseRoom.Floor.allCases {
-            guard let node = floors[floor] else { continue }
-            box(0.3, Self.wallHeight + 0.5, Self.halfDepth * 2, 0xCFCAC0,
-                x: Self.halfWidth + 0.15, bottom: -0.2, z: 0, in: node)
+    /// Solid wall on each side shared with a neighbor.
+    private func buildPartyWalls() {
+        for side in doc.building.partyWalls {
+            for node in floors.values {
+                switch side {
+                case .right, .left:
+                    box(0.3, wallHeight + 0.5, halfDepth * 2, 0xCFCAC0,
+                        x: (side == .right ? 1 : -1) * (halfWidth + 0.15), bottom: -0.2, z: 0, in: node)
+                case .back:
+                    box(halfWidth * 2, wallHeight + 0.5, 0.3, 0xCFCAC0,
+                        x: 0, bottom: -0.2, z: -(halfDepth + 0.15), in: node)
+                }
+            }
         }
     }
 
     /// Thin columns that tie the floors together and show they are one house.
     private func buildColumns() {
-        let bottom = CGFloat(Self.height(of: .basement))
-        let height = CGFloat(Self.roofHeight) - bottom
+        let bottom = CGFloat(elevation(of: doc.building.lowestLevel))
+        let height = CGFloat(roofHeight) - bottom
         for (x, z) in [(-1, -1), (1, -1), (-1, 1), (1, 1)] as [(CGFloat, CGFloat)] {
-            let column = box(0.05, height, 0.05, 0xFFFFFF, x: x * Self.halfWidth, bottom: bottom,
-                             z: z * Self.halfDepth, in: scene.rootNode)
+            let column = box(0.05, height, 0.05, 0xFFFFFF, x: x * halfWidth, bottom: bottom,
+                             z: z * halfDepth, in: scene.rootNode)
             column.opacity = 0.45
             columns.append(column)
         }
@@ -456,7 +483,7 @@ final class HouseModel {
 
     /// Hip roof, with the panels on the back slope.
     private func buildRoof() {
-        let roof = Self.doc.roof
+        let roof = doc.roof
         let x = roof.halfWidth, z = roof.halfDepth, ridge = roof.ridge, rise = roof.rise
         let a = SCNVector3(-x, 0, z), b = SCNVector3(x, 0, z)
         let c = SCNVector3(x, 0, -z), d = SCNVector3(-x, 0, -z)
@@ -487,7 +514,9 @@ final class HouseModel {
         box(0.6, 1.3, 0.6, 0xC5684C, x: roof.chimney.x, bottom: 0.1, z: roof.chimney.z, in: roofNode)
         box(0.75, 0.12, 0.75, 0x8F4A36, x: roof.chimney.x, bottom: 1.4, z: roof.chimney.z, in: roofNode)
 
-        buildSolarPanels(halfDepth: CGFloat(z), rise: CGFloat(rise))
+        if let panels = roof.panels, doc.rooms.contains(where: { $0.style == .solar }) {
+            buildSolarPanels(panels, halfDepth: CGFloat(z), rise: CGFloat(rise))
+        }
     }
 
     private static func minus(_ a: SCNVector3, _ b: SCNVector3) -> SCNVector3 {
@@ -503,7 +532,7 @@ final class HouseModel {
         return SCNVector3(v.x / length, v.y / length, v.z / length)
     }
 
-    private func buildSolarPanels(halfDepth: CGFloat, rise: CGFloat) {
+    private func buildSolarPanels(_ panels: HouseDocument.Roof.Panels, halfDepth: CGFloat, rise: CGFloat) {
         solarCell.lightingModel = .blinn
         solarCell.diffuse.contents = UIColor(hex: 0x14285A)
         solarCell.specular.contents = UIColor(white: 0.9, alpha: 1)
@@ -512,7 +541,6 @@ final class HouseModel {
         let array = SCNNode()
         array.name = "room:solar"
         // The slope rises from the back to the ridge: the panels tilt with it.
-        let panels = Self.doc.roof.panels
         let along = panels.along
         array.position = SCNVector3(0, Float(rise * (1 - along)) + 0.03, Float(-halfDepth * along))
         array.eulerAngles.x = -Float(atan2(rise, halfDepth))
@@ -541,30 +569,30 @@ final class HouseModel {
         part.labelSize = label.size
         // The exact center falls on the seam between panels: aim at one of them.
         let inward: CGFloat = 0.5
-        part.center = SCNVector3(0.55, Self.roofHeight + Float(rise * (1 - along) - inward * rise / halfDepth) + 0.08,
+        part.center = SCNVector3(0.55, roofHeight + Float(rise * (1 - along) - inward * rise / halfDepth) + 0.08,
                                  Float(-halfDepth * along - inward))
-        part.lookAt = SCNVector3(0, Self.roofHeight + Float(rise * (1 - along)), Float(-halfDepth * along))
+        part.lookAt = SCNVector3(0, roofHeight + Float(rise * (1 - along)), Float(-halfDepth * along))
         parts["solar"] = part
     }
 
     /// Walls and floor of a room: three tall walls and a low one toward the street.
     private func addWalls(width w: CGFloat, depth d: CGFloat, paint: UInt32, floorColor: UInt32, in node: SCNNode) {
-        let h = Self.wallHeight, t: CGFloat = 0.1
+        let h = wallHeight, t: CGFloat = 0.1
         box(w, 0.08, d, floorColor, x: 0, bottom: 0, z: 0, in: node)
         box(w, h, t, paint, x: 0, bottom: 0, z: -d / 2 + t / 2, in: node)
         box(t, h, d, paint, x: -w / 2 + t / 2, bottom: 0, z: 0, in: node)
         box(t, h, d, paint, x: w / 2 - t / 2, bottom: 0, z: 0, in: node)
-        box(w, Self.lowWall, t, paint, x: 0, bottom: 0, z: d / 2 - t / 2, in: node)
+        box(w, lowWall, t, paint, x: 0, bottom: 0, z: d / 2 - t / 2, in: node)
         // Light cap: draws the outline of the room, like a floor plan.
         let cap: CGFloat = 0.03
         box(w, cap, t + 0.02, Self.plaster, x: 0, bottom: h, z: -d / 2 + t / 2, in: node)
         box(t + 0.02, cap, d, Self.plaster, x: -w / 2 + t / 2, bottom: h, z: 0, in: node)
         box(t + 0.02, cap, d, Self.plaster, x: w / 2 - t / 2, bottom: h, z: 0, in: node)
-        box(w, cap, t + 0.02, Self.plaster, x: 0, bottom: Self.lowWall, z: d / 2 - t / 2, in: node)
+        box(w, cap, t + 0.02, Self.plaster, x: 0, bottom: lowWall, z: d / 2 - t / 2, in: node)
     }
 
-    private func buildUnlabeled(_ f: CGRect, color: UInt32, on floor: HouseRoom.Floor) {
-        guard let parent = floors[floor] else { return }
+    private func buildUnlabeled(_ f: CGRect, color: UInt32, on level: Int) {
+        guard let parent = floors[level] else { return }
         let node = SCNNode()
         node.position = SCNVector3(f.midX, 0, f.midY)
         parent.addChildNode(node)
@@ -572,9 +600,9 @@ final class HouseModel {
     }
 
     private func buildInterior(_ room: HouseRoom) {
-        guard let parent = floors[room.floor] else { return }
+        guard let parent = floors[room.level] else { return }
         let f = room.frame
-        let w = f.width, d = f.height, h = Self.wallHeight
+        let w = f.width, d = f.height, h = wallHeight
         let node = SCNNode()
         node.name = "room:\(room.id)"
         node.position = SCNVector3(f.midX, 0, f.midY)
@@ -582,8 +610,8 @@ final class HouseModel {
 
         let part = RoomParts()
         // The front wall hides the near part of the room: tap a little further back.
-        part.center = SCNVector3(Float(f.midX), Self.height(of: room.floor) + 0.4, Float(f.minY + d * 0.3))
-        part.lookAt = SCNVector3(Float(f.midX), Self.height(of: room.floor) + 0.1, Float(f.midY))
+        part.center = SCNVector3(Float(f.midX), elevation(of: room.level) + 0.4, Float(f.minY + d * 0.3))
+        part.lookAt = SCNVector3(Float(f.midX), elevation(of: room.level) + 0.1, Float(f.midY))
         addWalls(width: w, depth: d, paint: room.paint?.value ?? Self.defaultPaint,
                  floorColor: room.floorColor?.value ?? Self.woodFloor, in: node)
 
@@ -768,7 +796,7 @@ final class HouseModel {
     // MARK: - Exterior
 
     private func buildTerrace(_ room: HouseRoom) {
-        guard let parent = floors[room.floor] else { return }
+        guard let parent = floors[room.level] else { return }
         let f = room.frame
         let node = SCNNode()
         node.name = "room:\(room.id)"
@@ -815,8 +843,8 @@ final class HouseModel {
         }
         part.lamps = [bulbMaterial]
 
-        part.center = SCNVector3(Float(px), Self.height(of: room.floor) + Float(height) + 0.1, Float(pz))
-        part.lookAt = SCNVector3(Float(f.midX), Self.height(of: room.floor) + 0.1, Float(f.midY))
+        part.center = SCNVector3(Float(px), elevation(of: room.level) + Float(height) + 0.1, Float(pz))
+        part.lookAt = SCNVector3(Float(f.midX), elevation(of: room.level) + 0.1, Float(f.midY))
 
         let label = billboard(size: CGSize(width: 2.8, height: 0.72), in: node)
         label.node.position = SCNVector3(Float(px), Float(height + 0.35), Float(pz))
@@ -828,7 +856,7 @@ final class HouseModel {
     }
 
     private func buildPool(_ room: HouseRoom) {
-        guard let parent = floors[room.floor] else { return }
+        guard let parent = floors[room.level] else { return }
         let f = room.frame
         let node = SCNNode()
         node.name = "room:\(room.id)"
@@ -845,7 +873,7 @@ final class HouseModel {
 
         let part = RoomParts()
         part.water = water
-        part.center = SCNVector3(Float(f.midX), Self.height(of: room.floor) + 0.13, Float(f.midY))
+        part.center = SCNVector3(Float(f.midX), elevation(of: room.level) + 0.13, Float(f.midY))
 
         let label = billboard(size: CGSize(width: 2.6, height: 0.72), in: node)
         label.node.position = SCNVector3(0, 0.75, 0)
