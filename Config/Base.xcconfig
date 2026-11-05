@@ -1,0 +1,2 @@
+// Shared settings. Your signing team goes in Local.xcconfig, which git ignores.
+#include? "Local.xcconfig"

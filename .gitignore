@@ -1,0 +1,9 @@
+*.xcodeproj
+xcuserdata/
+DerivedData/
+build/
+.DS_Store
+
+# Personal files stay on your Mac.
+Config/Local.xcconfig
+DioramHA/Resources/house.local.json

@@ -1,0 +1,52 @@
+name: DioramHA
+options:
+  bundleIdPrefix: app.codeorbita
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+configFiles:
+  Debug: Config/Base.xcconfig
+  Release: Config/Base.xcconfig
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  DioramHA:
+    type: application
+    platform: iOS
+    sources: [DioramHA]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.codeorbita.dioramha
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_STYLE: Automatic
+    info:
+      path: DioramHA/Info.plist
+      properties:
+        CFBundleDisplayName: DioramHA
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NSLocalNetworkUsageDescription: To connect to Home Assistant on your local network.
+        # Unencrypted HTTP is only allowed to the local network; everything else needs HTTPS.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+  DioramHATests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [DioramHATests]
+    dependencies:
+      - target: DioramHA
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  DioramHA:
+    build:
+      targets:
+        DioramHA: all
+        DioramHATests: [test]
+    test:
+      targets: [DioramHATests]

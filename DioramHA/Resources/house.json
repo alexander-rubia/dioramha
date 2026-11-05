@@ -1,0 +1,717 @@
+{
+  "version": 1,
+  "name": "Example Home",
+  "sensors": {
+    "alarm": "alarm_control_panel.home",
+    "weather": "weather.forecast_home",
+    "sun": "sun.sun",
+    "solar": [
+      "sensor.inverter_active_power",
+      "sensor.solar_charger_power"
+    ],
+    "solarPeak": "sensor.inverter_day_peak_power",
+    "solarEnergy": "sensor.inverter_total_yield",
+    "battery": "sensor.battery_level"
+  },
+  "view": {
+    "yaw": -0.14,
+    "pitch": -0.6,
+    "width": 18.0,
+    "target": {
+      "x": -1.6,
+      "y": 2.2,
+      "z": 0
+    }
+  },
+  "building": {
+    "halfWidth": 5,
+    "halfDepth": 4,
+    "wallHeight": 1.0,
+    "lowWall": 0.35,
+    "floors": {
+      "basement": -7.0,
+      "ground": 0,
+      "first": 8.6
+    }
+  },
+  "roof": {
+    "height": 16.2,
+    "halfWidth": 5.4,
+    "halfDepth": 4.4,
+    "ridge": 1.0,
+    "rise": 1.1,
+    "chimney": {
+      "x": -3.0,
+      "z": 1.8
+    },
+    "panels": {
+      "columns": 6,
+      "rows": 2,
+      "along": 0.52
+    }
+  },
+  "site": {
+    "garden": {
+      "x": -11.2,
+      "z": -8.2,
+      "width": 16.2,
+      "depth": 13.1
+    },
+    "street": {
+      "x": -3.0,
+      "width": 16.4,
+      "earthZ": 6.0,
+      "earthDepth": 4.0,
+      "roadZ": 9.0,
+      "roadDepth": 1.8
+    },
+    "ramp": {
+      "x": 2.5,
+      "width": 4.4
+    },
+    "steps": {
+      "x": 0.5,
+      "width": 1.8,
+      "count": 5
+    },
+    "trees": [
+      {
+        "floor": "ground",
+        "x": -10.0,
+        "z": -6.4,
+        "size": 2.2
+      },
+      {
+        "floor": "ground",
+        "x": -6.0,
+        "z": 4.0,
+        "size": 1.4
+      }
+    ],
+    "hedges": [
+      {
+        "floor": "ground",
+        "x": -10.9,
+        "z": 0.5,
+        "width": 0.5,
+        "height": 0.8,
+        "depth": 6.0
+      }
+    ]
+  },
+  "extras": [
+    {
+      "name": "Storage",
+      "floor": "basement",
+      "frame": {
+        "x": -5,
+        "z": -4,
+        "width": 5,
+        "depth": 8
+      },
+      "color": "C9C4BA"
+    },
+    {
+      "name": "Stairs",
+      "floor": "basement",
+      "frame": {
+        "x": 0,
+        "z": -4,
+        "width": 5,
+        "depth": 1
+      },
+      "color": "D7D3CA"
+    },
+    {
+      "name": "Hall",
+      "floor": "ground",
+      "frame": {
+        "x": 0,
+        "z": -4,
+        "width": 1.5,
+        "depth": 8
+      },
+      "color": "E4DCCB"
+    },
+    {
+      "name": "Porch",
+      "floor": "ground",
+      "frame": {
+        "x": 1.5,
+        "z": 1.5,
+        "width": 3.5,
+        "depth": 2.5
+      },
+      "color": "D9CDB8"
+    },
+    {
+      "name": "Stairs",
+      "floor": "first",
+      "frame": {
+        "x": -0.5,
+        "z": -4,
+        "width": 2,
+        "depth": 3
+      },
+      "color": "D7D3CA"
+    },
+    {
+      "name": "Landing",
+      "floor": "first",
+      "frame": {
+        "x": -0.5,
+        "z": -1,
+        "width": 2,
+        "depth": 1.7
+      },
+      "color": "E4DCCB"
+    },
+    {
+      "name": "Bathroom 2",
+      "floor": "first",
+      "frame": {
+        "x": 1.5,
+        "z": 0,
+        "width": 3.5,
+        "depth": 2.7
+      },
+      "color": "92D5D8"
+    }
+  ],
+  "rooms": [
+    {
+      "id": "main_bedroom",
+      "name": "Bedroom 1",
+      "symbol": "bed.double.fill",
+      "style": "interior",
+      "floor": "first",
+      "frame": {
+        "x": -5,
+        "z": -4,
+        "width": 4.5,
+        "depth": 4
+      },
+      "paint": "E9C6BC",
+      "furniture": [
+        {
+          "type": "double_bed",
+          "x": 0,
+          "z": -1.919
+        }
+      ],
+      "devices": [
+        {
+          "entity": "light.main_bedroom_light",
+          "name": "Light",
+          "kind": "light"
+        },
+        {
+          "entity": "climate.main_bedroom_climate",
+          "name": "Heating",
+          "kind": "climate",
+          "modes": [
+            "off",
+            "auto",
+            "heat"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bedroom_2",
+      "name": "Bedroom 2",
+      "symbol": "bed.double",
+      "style": "interior",
+      "floor": "first",
+      "frame": {
+        "x": -5,
+        "z": 0,
+        "width": 4.5,
+        "depth": 4
+      },
+      "paint": "A8D0E6",
+      "furniture": [
+        {
+          "type": "kid_bed",
+          "x": -1.5075,
+          "z": -1.919,
+          "color": "2F6DB5",
+          "accent": "B5834F"
+        },
+        {
+          "type": "cabinet",
+          "x": 1.872,
+          "z": -1.622,
+          "color": "E3B23C"
+        }
+      ],
+      "devices": [
+        {
+          "entity": "light.bedroom_2_light",
+          "name": "Light",
+          "kind": "light"
+        },
+        {
+          "entity": "climate.bedroom_2_climate",
+          "name": "Heating",
+          "kind": "climate",
+          "modes": [
+            "off",
+            "auto",
+            "heat"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bedroom_3",
+      "name": "Bedroom 3",
+      "symbol": "bed.double",
+      "style": "interior",
+      "floor": "first",
+      "frame": {
+        "x": 1.5,
+        "z": -4,
+        "width": 3.5,
+        "depth": 4
+      },
+      "paint": "CDBFE8",
+      "furniture": [
+        {
+          "type": "kid_bed",
+          "x": -1.0075,
+          "z": -1.919,
+          "color": "D65C93",
+          "accent": "E8D2B0"
+        },
+        {
+          "type": "cabinet",
+          "x": 1.372,
+          "z": -1.622,
+          "color": "7CBF9E"
+        }
+      ],
+      "devices": [
+        {
+          "entity": "light.bedroom_3_light",
+          "name": "Light",
+          "kind": "light"
+        },
+        {
+          "entity": "fan.bedroom_3_fan",
+          "name": "Fan",
+          "kind": "power",
+          "symbol": "fan.fill"
+        }
+      ]
+    },
+    {
+      "id": "laundry",
+      "name": "Laundry",
+      "symbol": "washer.fill",
+      "style": "interior",
+      "floor": "first",
+      "frame": {
+        "x": -0.5,
+        "z": 0.7,
+        "width": 2,
+        "depth": 2
+      },
+      "paint": "B9DFCB",
+      "furniture": [
+        {
+          "type": "washer",
+          "x": -0.513,
+          "z": -0.919,
+          "color": "7B8FA8"
+        },
+        {
+          "type": "washer",
+          "x": 0.513,
+          "z": -0.919,
+          "color": "A88B7B"
+        }
+      ],
+      "devices": [
+        {
+          "entity": "switch.washing_machine_plug",
+          "name": "Washer",
+          "kind": "power",
+          "symbol": "washer.fill",
+          "confirm": true
+        },
+        {
+          "entity": "switch.dryer_plug",
+          "name": "Dryer",
+          "kind": "power",
+          "symbol": "dryer.fill",
+          "confirm": true
+        }
+      ]
+    },
+    {
+      "id": "living",
+      "name": "Living Room",
+      "symbol": "sofa.fill",
+      "style": "interior",
+      "floor": "ground",
+      "frame": {
+        "x": -5,
+        "z": -4,
+        "width": 5,
+        "depth": 5
+      },
+      "paint": "C2D3A6",
+      "furniture": [
+        {
+          "type": "rug",
+          "x": 0,
+          "z": -0.675
+        },
+        {
+          "type": "coffee_table",
+          "x": 0,
+          "z": -0.54
+        },
+        {
+          "type": "sofa",
+          "x": 0,
+          "z": -2.419
+        }
+      ],
+      "devices": [
+        {
+          "entity": "light.living_room_sofa_light",
+          "name": "Sofa",
+          "kind": "light"
+        },
+        {
+          "entity": "light.living_room_table_light",
+          "name": "Table",
+          "kind": "light"
+        },
+        {
+          "entity": "cover.living_room_blind",
+          "name": "Blind",
+          "kind": "blind"
+        },
+        {
+          "entity": "climate.living_room_climate",
+          "name": "Heating",
+          "kind": "climate",
+          "modes": [
+            "off",
+            "auto",
+            "heat"
+          ]
+        },
+        {
+          "entity": "vacuum.robot",
+          "name": "Vacuum",
+          "kind": "vacuum"
+        }
+      ]
+    },
+    {
+      "id": "kitchen",
+      "name": "Kitchen",
+      "symbol": "cooktop.fill",
+      "style": "interior",
+      "floor": "ground",
+      "frame": {
+        "x": -5,
+        "z": 1,
+        "width": 5,
+        "depth": 3
+      },
+      "paint": "EBB8A0",
+      "furniture": [
+        {
+          "type": "counter",
+          "x": -0.378,
+          "z": -1.041,
+          "width": 4.19
+        },
+        {
+          "type": "fridge",
+          "x": 2.095,
+          "z": -1.041
+        }
+      ],
+      "devices": [
+        {
+          "entity": "light.kitchen_light",
+          "name": "Light",
+          "kind": "light"
+        },
+        {
+          "entity": "cover.kitchen_blind",
+          "name": "Blind",
+          "kind": "blind"
+        },
+        {
+          "entity": "climate.kitchen_climate",
+          "name": "Heating",
+          "kind": "climate",
+          "modes": [
+            "off",
+            "auto",
+            "heat"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "study",
+      "name": "Study",
+      "symbol": "desktopcomputer",
+      "style": "interior",
+      "floor": "ground",
+      "frame": {
+        "x": 1.5,
+        "z": -4,
+        "width": 3.5,
+        "depth": 3.5
+      },
+      "paint": "B3C4DA",
+      "furniture": [
+        {
+          "type": "desk",
+          "x": 0,
+          "z": -1.669
+        }
+      ],
+      "devices": [
+        {
+          "entity": "light.study_light",
+          "name": "Light",
+          "kind": "light"
+        },
+        {
+          "entity": "cover.study_blind",
+          "name": "Blind",
+          "kind": "blind"
+        },
+        {
+          "entity": "climate.study_climate",
+          "name": "Heating",
+          "kind": "climate",
+          "modes": [
+            "off",
+            "auto",
+            "heat"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bathroom",
+      "name": "Bathroom",
+      "symbol": "shower.fill",
+      "style": "interior",
+      "floor": "ground",
+      "frame": {
+        "x": 1.5,
+        "z": -0.5,
+        "width": 3.5,
+        "depth": 2
+      },
+      "paint": "92D5D8",
+      "furniture": [
+        {
+          "type": "bathtub",
+          "x": 0,
+          "z": -0.433,
+          "width": 3.23
+        },
+        {
+          "type": "toilet",
+          "x": 0,
+          "z": 0.675
+        }
+      ],
+      "devices": [
+        {
+          "entity": "light.bathroom_light",
+          "name": "Light",
+          "kind": "light"
+        },
+        {
+          "entity": "switch.bathroom_fan",
+          "name": "Extractor Fan",
+          "kind": "power",
+          "symbol": "fan.fill"
+        }
+      ]
+    },
+    {
+      "id": "garage",
+      "name": "Garage",
+      "symbol": "car.side.fill",
+      "style": "interior",
+      "floor": "basement",
+      "frame": {
+        "x": 0,
+        "z": -3,
+        "width": 5,
+        "depth": 7
+      },
+      "paint": "D3D4D8",
+      "floorColor": "8E9096",
+      "furniture": [
+        {
+          "type": "car",
+          "x": 0.405,
+          "z": 0.27,
+          "rotation": 90
+        },
+        {
+          "type": "shelf",
+          "x": -1.485,
+          "z": -3.149
+        }
+      ],
+      "devices": [
+        {
+          "entity": "switch.garage_door_switch",
+          "name": "Garage door",
+          "kind": "power",
+          "symbol": "door.garage.closed",
+          "confirm": true
+        },
+        {
+          "entity": "switch.garage_entrance_gate_switch",
+          "name": "Entrance gate",
+          "kind": "power",
+          "symbol": "door.sliding.left.hand.closed",
+          "confirm": true
+        },
+        {
+          "entity": "light.garage_light",
+          "name": "Light",
+          "kind": "light"
+        }
+      ]
+    },
+    {
+      "id": "terrace",
+      "name": "Terrace",
+      "symbol": "chair.lounge.fill",
+      "style": "terrace",
+      "floor": "ground",
+      "frame": {
+        "x": -5,
+        "z": -8,
+        "width": 10,
+        "depth": 4
+      },
+      "pergola": {
+        "width": 5.0,
+        "height": 2.3
+      },
+      "furniture": [
+        {
+          "type": "lounger",
+          "x": -3.5,
+          "z": 0
+        },
+        {
+          "type": "lounger",
+          "x": -2.2,
+          "z": 0
+        }
+      ],
+      "devices": [
+        {
+          "entity": "light.terrace_pergola",
+          "name": "Pergola",
+          "kind": "light"
+        },
+        {
+          "entity": "cover.terrace_pergola",
+          "name": "Pergola cover",
+          "kind": "blind"
+        },
+        {
+          "entity": "switch.garden_irrigation",
+          "name": "Irrigation",
+          "kind": "power",
+          "symbol": "drop.fill"
+        }
+      ]
+    },
+    {
+      "id": "pool",
+      "name": "Pool",
+      "symbol": "water.waves",
+      "style": "pool",
+      "floor": "ground",
+      "frame": {
+        "x": -9.5,
+        "z": -2.5,
+        "width": 3,
+        "depth": 6
+      },
+      "furniture": [],
+      "devices": [
+        {
+          "entity": "light.pool_light",
+          "name": "Light",
+          "kind": "light"
+        },
+        {
+          "entity": "switch.pool_pump",
+          "name": "Pool pump",
+          "kind": "power",
+          "symbol": "arrow.triangle.2.circlepath"
+        }
+      ]
+    },
+    {
+      "id": "solar",
+      "name": "Solar",
+      "symbol": "sun.max.fill",
+      "style": "solar",
+      "floor": "ground",
+      "frame": {
+        "x": -3,
+        "z": -3.8,
+        "width": 6,
+        "depth": 3
+      },
+      "furniture": [],
+      "devices": []
+    },
+    {
+      "id": "frontal",
+      "name": "Entrance",
+      "symbol": "tree.fill",
+      "style": "garden",
+      "floor": "basement",
+      "frame": {
+        "x": -5,
+        "z": 4,
+        "width": 10,
+        "depth": 4
+      },
+      "furniture": [
+        {
+          "type": "hedge",
+          "x": -4.0,
+          "z": 1.5,
+          "width": 1.0,
+          "height": 0.45,
+          "depth": 0.32
+        }
+      ],
+      "devices": [
+        {
+          "entity": "switch.front_irrigation",
+          "name": "Irrigation",
+          "kind": "power",
+          "symbol": "drop.fill"
+        }
+      ]
+    }
+  ]
+}
