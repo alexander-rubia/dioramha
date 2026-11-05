@@ -83,7 +83,7 @@ import Testing
     @Test func interiorRoomsDoNotOverlap() {
         let rooms = House.rooms.filter { $0.style == .interior }
         for (i, a) in rooms.enumerated() {
-            for b in rooms[(i + 1)...] where a.floor == b.floor {
+            for b in rooms[(i + 1)...] where a.level == b.level {
                 #expect(a.frame.insetBy(dx: 0.001, dy: 0.001).intersects(b.frame) == false, "\(a.id) and \(b.id)")
             }
         }
@@ -129,6 +129,36 @@ import Testing
                 var rooms = json["rooms"] as? [[String: Any]] ?? []
                 rooms.append(rooms[0])
                 json["rooms"] = rooms
+            }
+        }
+    }
+
+    @Test func rejectsAHouseWithoutAGroundFloor() {
+        #expect(throws: HouseDocument.Problem.noGroundFloor) {
+            try read { json in
+                var building = json["building"] as? [String: Any] ?? [:]
+                building["levels"] = [1, 2]
+                json["building"] = building
+            }
+        }
+    }
+
+    @Test func rejectsARoomOnAFloorThatDoesNotExist() {
+        #expect(throws: HouseDocument.Problem.unknownLevel(7, in: "main_bedroom")) {
+            try read { json in
+                var rooms = json["rooms"] as? [[String: Any]] ?? []
+                rooms[0]["level"] = 7
+                json["rooms"] = rooms
+            }
+        }
+    }
+
+    @Test func rejectsFloorsWithAGap() {
+        #expect(throws: HouseDocument.Problem.gapBetweenLevels) {
+            try read { json in
+                var building = json["building"] as? [String: Any] ?? [:]
+                building["levels"] = [0, 2]
+                json["building"] = building
             }
         }
     }
@@ -201,6 +231,104 @@ import Testing
             let tapped = model.roomID(at: CGPoint(x: CGFloat(point.x), y: CGFloat(point.y)), in: view)
             #expect(tapped == room.id, "\(room.id)")
         }
+    }
+
+    private func exampleJSON() throws -> [String: Any] {
+        let url = try #require(Bundle(for: HouseModel.self).url(forResource: "house", withExtension: "json"))
+        return try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+    }
+
+    private func edited(_ change: (inout [String: Any], inout [String: Any], inout [[String: Any]]) -> Void) throws -> HouseDocument {
+        var json = try exampleJSON()
+        var building = json["building"] as? [String: Any] ?? [:]
+        var rooms = json["rooms"] as? [[String: Any]] ?? []
+        change(&json, &building, &rooms)
+        json["building"] = building
+        json["rooms"] = rooms
+        return try HouseDocument(data: JSONSerialization.data(withJSONObject: json))
+    }
+
+    /// A bungalow: only the rooms on the ground floor, no basement and no neighbors.
+    private func bungalow() throws -> HouseDocument {
+        try edited { json, building, rooms in
+            building["levels"] = [0]
+            building["partyWalls"] = [String]()
+            rooms = rooms.filter { room in
+                (room["level"] as? Int) == 0 || room["id"] as? String == "frontal"
+            }.map { room in
+                var room = room
+                room["level"] = 0
+                return room
+            }
+            json["extras"] = (json["extras"] as? [[String: Any]] ?? []).filter { ($0["level"] as? Int) == 0 }
+            var site = json["site"] as? [String: Any] ?? [:]
+            var garden = site["garden"] as? [String: Any] ?? [:]
+            garden["depth"] = 12.2 // Ends at the front of the house, where the entrance begins.
+            site["garden"] = garden
+            site["ramp"] = nil
+            site["steps"] = nil
+            json["site"] = site
+        }
+    }
+
+    private func expectEveryRoomCanBeTapped(in document: HouseDocument, _ comment: String) {
+        let model = HouseModel(document: document)
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        view.scene = model.scene
+        view.pointOfView = model.cameraNode
+        model.fit(to: view.bounds.size)
+        for room in document.rooms {
+            let point = view.projectPoint(model.tapTarget(for: room))
+            let tapped = model.roomID(at: CGPoint(x: CGFloat(point.x), y: CGFloat(point.y)), in: view)
+            #expect(tapped == room.id, "\(comment): \(room.id)")
+        }
+    }
+
+    @Test func aSingleStoryHouseWorks() throws {
+        let document = try bungalow()
+        #expect(document.building.lowestLevel == 0)
+        #expect(document.building.roofElevation == 11.4)
+        expectEveryRoomCanBeTapped(in: document, "bungalow")
+    }
+
+    @Test func aPartyWallCanBeOnEitherSideOrMissing() throws {
+        for sides in [["left"], ["back"], ["left", "right"], [String]()] {
+            let document = try edited { _, building, _ in building["partyWalls"] = sides }
+            expectEveryRoomCanBeTapped(in: document, "party walls \(sides)")
+        }
+    }
+
+    /// Four floors: a room moved up must end higher and still be reachable.
+    @Test func aTallHouseStacksItsFloors() throws {
+        let document = try edited { _, building, rooms in
+            building["levels"] = [-1, 0, 1, 2]
+            let index = rooms.firstIndex { $0["id"] as? String == "laundry" } ?? 0
+            rooms[index]["level"] = 2
+        }
+        let b = document.building
+        #expect(b.elevation(of: 2) > b.elevation(of: 1))
+        #expect(b.roofElevation > b.elevation(of: 2))
+        expectEveryRoomCanBeTapped(in: document, "four floors")
+    }
+
+    /// A first floor as deep as the house would hide the patio without a bigger gap.
+    @Test func aBiggerGapKeepsThePatioReachableBehindADeepFloor() throws {
+        let document = try edited { _, building, rooms in
+            building["levelGap"] = 10.6
+            let index = rooms.firstIndex { $0["id"] as? String == "laundry" } ?? 0
+            rooms[index]["frame"] = ["x": -0.5, "z": 1, "width": 2, "depth": 3]
+        }
+        #expect(document.building.elevation(of: 1) == 10.6)
+        expectEveryRoomCanBeTapped(in: document, "deep first floor")
+    }
+
+    /// Without a saved view, the camera frames whatever house it gets.
+    @Test func theCameraIsWorkedOutWhenTheFileHasNone() throws {
+        let tall = try edited { _, building, _ in building["levels"] = [-1, 0, 1, 2] }
+        let low = try bungalow()
+        #expect(low.view == nil)
+        #expect(low.camera.width > 0)
+        #expect(tall.camera.target.y != low.camera.target.y)
     }
 
     /// Inside a room, the floors above must not catch taps.

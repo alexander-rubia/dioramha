@@ -15,27 +15,37 @@ struct HouseDocument: Decodable, Sendable {
         let x, y, z: Float
     }
 
+    /// Where the camera rests in the overview.
     struct View: Decodable, Sendable {
         let yaw, pitch: Float
         let width: CGFloat
         let target: Point
     }
 
-    struct Building: Decodable, Sendable {
-        struct Floors: Decodable, Sendable {
-            let basement, ground, first: Float
+    /// A side of the house, seen from the street.
+    enum Side: String, Decodable, Sendable { case left, right, back }
 
-            func height(of floor: HouseRoom.Floor) -> Float {
-                switch floor {
-                case .basement: basement
-                case .ground: ground
-                case .first: first
-                }
-            }
+    struct Building: Decodable, Sendable {
+        let halfWidth, halfDepth, wallHeight, lowWall: CGFloat
+        /// Floors of the house: 0 is the ground floor, -1 a basement, 1 the floor above, and so on.
+        let levels: [Int]
+        /// Sides shared with a neighbor. Empty for a detached house.
+        let partyWalls: [Side]
+
+        /// Optional distance between upper floors. A deep upper floor needs more to show the patio behind.
+        let levelGap: Float?
+
+        /// Height at which a floor floats in the model, far enough apart to see the one below.
+        func elevation(of level: Int) -> Float {
+            Float(level) * (level < 0 ? 7.0 : levelGap ?? 8.6)
         }
 
-        let halfWidth, halfDepth, wallHeight, lowWall: CGFloat
-        let floors: Floors
+        var lowestLevel: Int { levels.min() ?? 0 }
+        /// With only a ground floor the roof floats higher, so it does not hide the patio behind.
+        var roofElevation: Float {
+            let top = levels.max() ?? 0
+            return elevation(of: top) + (top == 0 ? 11.4 : 7.6)
+        }
     }
 
     struct Roof: Decodable, Sendable {
@@ -46,9 +56,9 @@ struct HouseDocument: Decodable, Sendable {
             let along: CGFloat
         }
 
-        let height, halfWidth, halfDepth, ridge, rise: Float
+        let halfWidth, halfDepth, ridge, rise: Float
         let chimney: Spot
-        let panels: Panels
+        let panels: Panels?
     }
 
     struct Site: Decodable, Sendable {
@@ -61,18 +71,18 @@ struct HouseDocument: Decodable, Sendable {
             let count: Int
         }
         struct Tree: Decodable, Sendable {
-            let floor: HouseRoom.Floor
+            let level: Int
             let x, z, size: CGFloat
         }
         struct Hedge: Decodable, Sendable {
-            let floor: HouseRoom.Floor
+            let level: Int
             let x, z, width, height, depth: CGFloat
         }
 
         let garden: PlanRect
         let street: Street
-        let ramp: Ramp
-        let steps: Steps
+        let ramp: Ramp?
+        let steps: Steps?
         let trees: [Tree]
         let hedges: [Hedge]
     }
@@ -80,7 +90,7 @@ struct HouseDocument: Decodable, Sendable {
     /// A space that shapes the house but that the app does not control and cannot be tapped.
     struct Extra: Decodable, Sendable {
         let name: String
-        let floor: HouseRoom.Floor
+        let level: Int
         let frame: PlanRect
         let color: HexColor
     }
@@ -90,14 +100,19 @@ struct HouseDocument: Decodable, Sendable {
         case duplicateRoom(String)
         case duplicateDevice(String)
         case emptyRoom(String)
+        case noGroundFloor
+        case repeatedLevel(Int)
+        case gapBetweenLevels
+        case unknownLevel(Int, in: String)
     }
 
-    static let currentVersion = 1
+    static let currentVersion = 2
 
     let version: Int
     let name: String
     let sensors: Sensors
-    let view: View
+    /// Optional: without it, the camera is worked out from the size of the house.
+    let view: View?
     let building: Building
     let roof: Roof
     let site: Site
@@ -106,12 +121,69 @@ struct HouseDocument: Decodable, Sendable {
 
     /// Reads and checks a house file. Every file goes through here, wherever it comes from.
     init(data: Data) throws {
+        // Checked first: an older file would otherwise fail with a confusing missing-field error.
+        struct Header: Decodable { let version: Int }
+        let version = try JSONDecoder().decode(Header.self, from: data).version
+        guard version == Self.currentVersion else { throw Problem.unsupportedVersion(version) }
         self = try JSONDecoder().decode(HouseDocument.self, from: data)
         try validate()
     }
 
+    var camera: View { view ?? automaticView }
+
+    /// Frames the whole house above the bottom dock, whatever its size and number of floors.
+    private var automaticView: View {
+        let yaw: Float = -0.14, pitch: Float = -0.6
+        let b = building, street = site.street
+        let lowest = b.elevation(of: b.lowestLevel)
+        let garden = site.garden.rect
+        var points: [(x: Float, y: Float, z: Float)] = []
+        func add(minX: CGFloat, maxX: CGFloat, minZ: CGFloat, maxZ: CGFloat, y: Float) {
+            for x in [minX, maxX] { for z in [minZ, maxZ] { points.append((Float(x), y, Float(z))) } }
+        }
+        add(minX: garden.minX, maxX: garden.maxX, minZ: garden.minY, maxZ: garden.maxY, y: b.elevation(of: 0))
+        add(minX: street.x - street.width / 2, maxX: street.x + street.width / 2, minZ: street.roadZ - street.roadDepth / 2,
+            maxZ: street.roadZ + street.roadDepth / 2, y: lowest)
+        add(minX: CGFloat(-roof.halfWidth), maxX: CGFloat(roof.halfWidth), minZ: CGFloat(-roof.halfDepth),
+            maxZ: CGFloat(roof.halfDepth), y: b.roofElevation)
+        // The roof label floats above the back slope.
+        points.append((0, b.roofElevation + roof.rise + 1.0, -roof.halfDepth))
+        let across = points.map { $0.x * cos(yaw) - $0.z * sin(yaw) }
+        let up = points.map { $0.y * cos(pitch) + $0.z * sin(pitch) }
+        let minU = across.min() ?? 0, maxU = across.max() ?? 0, minV = up.min() ?? 0, maxV = up.max() ?? 0
+        // A very wide plot may be cropped, so the house stays large enough to tap...
+        let wide = min(maxU - minU, Float(b.halfWidth) * 4)
+        // ...but every floor must fit between the dock and the notch on a tall iPhone screen.
+        let tall = (maxV - minV) * 0.635
+        // Slightly wider than the sums: perspective makes the floors nearest the camera look larger.
+        let width = max(wide, tall) * 1.08
+        // Room for the dock below and the notch above, in world units on a 402-point-wide screen.
+        let dock = width * 140 / 402, notch = width * 100 / 402
+        let center = (minV + maxV) / 2 - dock / 2 + notch / 2
+        // When cropping, the garden is what gets cut: the far edge of the house stays on screen.
+        let houseEdge = roof.halfWidth * cos(yaw) - roof.halfDepth * sin(yaw)
+        let gardenOnLeft = -garden.minX >= garden.maxX
+        let centerU = maxU - minU <= max(wide, tall) ? (minU + maxU) / 2
+            : gardenOnLeft ? houseEdge + 1 - width / 2 : -houseEdge - 1 + width / 2
+        return View(yaw: yaw, pitch: pitch, width: CGFloat(width),
+                    target: Point(x: centerU / cos(yaw), y: center / cos(pitch), z: 0))
+    }
+
     func validate() throws {
         guard version == Self.currentVersion else { throw Problem.unsupportedVersion(version) }
+        let levels = building.levels.sorted()
+        guard levels.contains(0) else { throw Problem.noGroundFloor }
+        for (a, b) in zip(levels, levels.dropFirst()) {
+            if a == b { throw Problem.repeatedLevel(a) }
+            if b != a + 1 { throw Problem.gapBetweenLevels }
+        }
+        func check(_ level: Int, _ place: String) throws {
+            guard levels.contains(level) else { throw Problem.unknownLevel(level, in: place) }
+        }
+        for room in rooms { try check(room.level, room.id) }
+        for extra in extras { try check(extra.level, extra.name) }
+        for tree in site.trees { try check(tree.level, "tree") }
+        for hedge in site.hedges { try check(hedge.level, "hedge") }
         var roomIDs = Set<String>()
         var deviceIDs = Set<String>()
         for room in rooms {
@@ -128,6 +200,13 @@ struct HouseDocument: Decodable, Sendable {
     /// The file shipped in the app: your `house.local.json` if it exists, which git ignores,
     /// otherwise the example home. A broken file here is a programming error.
     static let bundled: HouseDocument = {
+        #if DEBUG
+        // Simulator testing only: preview another house file without rebuilding the app.
+        if let path = ProcessInfo.processInfo.environment["HA_DEBUG_HOUSE"], !path.isEmpty,
+           let data = FileManager.default.contents(atPath: path) {
+            do { return try HouseDocument(data: data) } catch { fatalError("\(path) is not valid: \(error)") }
+        }
+        #endif
         let bundle = Bundle(for: BundleToken.self)
         guard let url = bundle.url(forResource: "house.local", withExtension: "json")
                 ?? bundle.url(forResource: "house", withExtension: "json") else {
@@ -220,7 +299,6 @@ struct Furniture: Decodable, Hashable, Sendable {
 
 struct HouseRoom: Identifiable, Hashable, Sendable, Decodable {
     enum Style: String, Hashable, Sendable, Decodable { case interior, terrace, pool, garden, solar }
-    enum Floor: String, Hashable, Sendable, CaseIterable, Decodable { case basement, ground, first }
 
     struct Pergola: Decodable, Hashable, Sendable {
         let width, height: CGFloat
@@ -230,7 +308,8 @@ struct HouseRoom: Identifiable, Hashable, Sendable, Decodable {
     let name: String
     let symbol: String
     let style: Style
-    let floor: Floor
+    /// Floor it is on: 0 is the ground floor.
+    let level: Int
     /// Place on the plan: x grows to the right seen from the street, and y toward the street.
     let frame: CGRect
     let paint: HexColor?
@@ -244,7 +323,7 @@ struct HouseRoom: Identifiable, Hashable, Sendable, Decodable {
     var blinds: [Device] { devices.filter { $0.kind == .blind } }
 
     private enum Keys: String, CodingKey {
-        case id, name, symbol, style, floor, frame, paint, floorColor, pergola, furniture, devices
+        case id, name, symbol, style, level, frame, paint, floorColor, pergola, furniture, devices
     }
 
     init(from decoder: Decoder) throws {
@@ -253,7 +332,7 @@ struct HouseRoom: Identifiable, Hashable, Sendable, Decodable {
         name = try c.decode(String.self, forKey: .name)
         symbol = try c.decode(String.self, forKey: .symbol)
         style = try c.decode(Style.self, forKey: .style)
-        floor = try c.decode(Floor.self, forKey: .floor)
+        level = try c.decode(Int.self, forKey: .level)
         frame = try c.decode(PlanRect.self, forKey: .frame).rect
         paint = try c.decodeIfPresent(HexColor.self, forKey: .paint)
         floorColor = try c.decodeIfPresent(HexColor.self, forKey: .floorColor)
